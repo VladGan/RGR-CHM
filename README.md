@@ -1,2 +1,2 @@
 # RGR-CHM
-выавыавыа
+jordan normal form

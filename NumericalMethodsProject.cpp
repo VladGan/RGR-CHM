@@ -1,4 +1,5 @@
 #include <iostream>
+#include <sstream>
 #include <iomanip>
 #include <functional>
 #include <algorithm>
@@ -221,6 +222,15 @@ void restoreUnits(Matrix<T>& A, Matrix<T>& J){
 				A[j][i] -= A[j][k + 1] * ratio;
 		}
 	}
+
+	for (size_t k = 0; k < n - 1; ++k){                     //move remains to narrow side
+		if (J[k][k + 1] != (T)1) continue;
+
+		for (size_t i = 0; i < n; ++i){
+			if (i == k) continue;
+			A[i][k + 1] = (T)0;
+		}
+	}
 }
 
 complex<double> randomComplex(double eps){
@@ -232,18 +242,26 @@ complex<double> randomComplex(double eps){
 }
 
 template<class T>
-void output(Matrix<T>* M){
+void output(Matrix<complex<T> >* M){
 	for (size_t i = 0; i < M->get_rows(); ++i)
 	for (size_t j = 0; j < M->get_cols(); ++j){
-		T to = (*M)[i][j];
-		if (to == (T)0) to = (T)0;
-		if (to == (T)1) to = (T)1;
-		cout << setprecision(3) << to << (j == M->get_cols() - 1 ? '\n' : ' ');
+		complex<T> to = (*M)[i][j];
+		if (to == (complex<T>)0) to = (complex<T>)0;
+		if (to == (complex<T>)1) to = (complex<T>)1;
+		int ac = 10000;
+		T fc = round(to.real() * ac) / ac, sc = round(to.imag() * ac) / ac;
+		stringstream ss;
+		ss << "(" << fc << "," << sc << ")";
+		string s;
+		ss >> s;
+		while (s.size() < 17) s = ' ' + s;
+		cout << s << (j == M->get_cols() - 1 ? '\n' : ' ');
 	}
 }
 
 int main(){
 	freopen("input.txt", "r", stdin);
+	freopen("output.txt", "w", stdout);
 	srand(time(0));
 	int n;
 	double eps;
@@ -259,13 +277,16 @@ int main(){
 		a[i][j] = num;
 	}
 	Matrix<complex<double> > J((size_t)n, (size_t)n, a);
+	reorderCells(J);
 	Matrix <complex<double> > E(n, n, (complex<double>)0);
 	for (int i = 0; i < n; ++i)
-	for (int j = 0; j < n; ++j)
-		E[i][j] = randomComplex(eps);
+		for (int j = 0; j < n; ++j)
+			E[i][j] = randomComplex(eps);
 	Matrix <complex<double> > A = E + J;
-	reorderCells(J);
+	cout << "before: \n\n"
+	output(&A);
 	restoreUnits(A, J);
+	cout << "\nafter: \n\n"
 	output(&A);
 	return 0;
 }

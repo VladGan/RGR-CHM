@@ -9,6 +9,7 @@
 #include <vector>
 #include <ctime>
 #include <cmath>
+#define M_PI 3.14159265358979323846
 
 using namespace std;
 
@@ -186,13 +187,14 @@ void reorderCells(Matrix<T>& a){
 	sort(cells.begin(), cells.end(), greater<size_t>());
 	for (size_t i = 0; i < n - 1; ++i)
 		a[i][i + 1] = 0;
-	size_t i = 0;
-	for (auto csz : cells){
+	size_t k = 0;
+	for (size_t i = 0; i < cells.size();++i){
+		size_t csz = cells[i];
 		while (--csz){
-			a[i][i + 1] = 1;
-			++i;
+			a[k][k + 1] = 1;
+			++k;
 		}
-		++i;
+		++k;
 	}
 }
 
@@ -214,30 +216,63 @@ void restoreUnits(Matrix<T>& A, Matrix<T>& J){
 		Matrix<T> RB = I;                                   //inverse matrix to B
 		RB[k + 1][k + 1] = (T)1 / A[k][k + 1];
 
-		A = B * A * RB;										//matrix transform
+		A = (B * A) * RB;									//similiarity matrix transform - get one in A[k][k + 1]
+
 		for (size_t i = 0; i < n; ++i){
 			if (i == k + 1) continue;
-			T ratio = A[k][i];
-			for (size_t j = 0; j < n; ++j)
-				A[j][i] -= A[j][k + 1] * ratio;
+			Matrix<T> C = I;
+			C[k + 1][i] = A[k][i];
+			Matrix<T> RC = I;
+			RC[k + 1][i] = -A[k][i];
+
+			A = (C * A) * RC;								//similiarity matrix transform - get zero in A[k][i]
 		}
 	}
 
-	for (size_t k = 0; k < n - 1; ++k){                     //move remains to narrow side
-		if (J[k][k + 1] != (T)1) continue;
-
-		for (size_t i = 0; i < n; ++i){
-			if (i == k) continue;
-			A[i][k + 1] = (T)0;
+	vector<pair<size_t, size_t> > cells;					//squares bounds [li,ri]
+	size_t sz = 1;
+	for (size_t k = 0; k < n; ++k){
+		if (k != n - 1 && J[k][k + 1] == (T)1)
+			++sz;
+		else{
+			cells.push_back(make_pair(k + 1 - sz, k));
+			sz = 1;
 		}
 	}
+	//reverse(cells.begin(), cells.end());
+
+	//код ниже попытка перенести остатки из широкой части в узкую, но если на одной вертикали нужно переносить в более чем одном
+	//квадрате , то тогда при умножении мы опять получаем на некоторых позициях остатки
+	for (size_t ver = 0; ver < cells.size(); ++ver){
+		for (size_t hor = 0; hor < cells.size(); ++hor){
+			if (cells[hor].second - cells[hor].first <= cells[ver].second - cells[ver].first) continue;
+
+			int narrow_side = cells[ver].second - cells[ver].first + 1;
+
+			for (int j = cells[hor].second; j >(int)cells[hor].first; --j){
+				int diag = min(narrow_side, j - (int)cells[hor].first);
+				for (int i = cells[ver].second; i >(int)cells[ver].second - diag; --i){
+					int nj = j - ((int)cells[ver].second - i);
+					Matrix<T> D = I;
+					D[i][nj - 1] = -A[i][nj];
+					Matrix<T> RD = I;
+					RD[i][nj - 1] = A[i][nj];
+
+					A = (D * A) * RD;
+				}
+			}
+
+			cout << "\nAfter:\n\n";
+			output(&A);
+		}
+	}
+
 }
 
 complex<double> randomComplex(double eps){
 	double r = eps * (double)rand() / (double)RAND_MAX;
-	double sin = (double)rand() / (double)RAND_MAX;
-	double cos = sqrt(1 - sin * sin);
-	complex<double> c(r*cos, r*sin);
+	double x = (double)rand() * 2 * M_PI / (double)RAND_MAX;
+	complex<double> c(r*cos(x), r*sin(x));
 	return c;
 }
 
@@ -280,13 +315,13 @@ int main(){
 	reorderCells(J);
 	Matrix <complex<double> > E(n, n, (complex<double>)0);
 	for (int i = 0; i < n; ++i)
-		for (int j = 0; j < n; ++j)
-			E[i][j] = randomComplex(eps);
+	for (int j = 0; j < n; ++j)
+		E[i][j] = randomComplex(eps);
 	Matrix <complex<double> > A = E + J;
-	cout << "before: \n\n"
+	cout << "before\n\n";
 	output(&A);
 	restoreUnits(A, J);
-	cout << "\nafter: \n\n"
+	cout << "\nafter\n\n";
 	output(&A);
 	return 0;
 }
